@@ -1,39 +1,11 @@
 import Fastify from "fastify";
-import axios from "axios";
 import cors from "@fastify/cors";
 import cookie from "@fastify/cookie";
-import jwt from "jsonwebtoken";
 import fastifyEnv from "@fastify/env";
-import { AuthQuerystring, AuthResponse, NaverProfileResponse } from "./types";
-import { MongoClient } from "mongodb";
-
-function getRandomName() {
-  return Math.random().toString(36).substring(2, 15);
-}
-
-type IGenerateAccessToken = {
-  userId: string;
-};
-
-function generateAccessToken({ userId }: IGenerateAccessToken) {
-  const { JWT_SECRET } = process.env;
-
-  if (JWT_SECRET === undefined) {
-    throw new Error("JWT_SECRET is not defined");
-  }
-
-  return jwt.sign(
-    {
-      user_id: userId,
-    },
-    JWT_SECRET,
-    {
-      expiresIn: "1h",
-      issuer: "QuotesSharer",
-      subject: "accessToken",
-    }
-  );
-}
+import { AuthQuerystring } from "./types";
+import { generateAccessToken } from "./lib/token";
+import { getAuth, getProfile } from "./lib/naver";
+import { createUser, getUserById } from "./lib/db";
 
 const server = Fastify();
 
@@ -53,6 +25,9 @@ export const envProperties = {
   NAVER_AUTH_STATE: {
     type: "string",
   },
+  COOKIE_SIGNATURE: {
+    type: "string",
+  },
 };
 
 const envOptions = {
@@ -67,10 +42,9 @@ const envOptions = {
 
 server.register(fastifyEnv, envOptions);
 server.register(cookie, {
-  secret: "cookie-secret",
+  secret: process.env.COOKIE_SIGNATURE,
   hook: "onRequest",
 });
-
 server.register(cors, {
   origin: ["http://localhost:5173"],
   credentials: true,
@@ -82,59 +56,44 @@ server.get<{ Querystring: AuthQuerystring }>(
     try {
       const { code } = request.query;
 
-      const { data } = await axios.get<AuthResponse>(
-        `https://nid.naver.com/oauth2.0/token?grant_type=authorization_code&client_id=${server.config.NAVER_CLIENT_ID}&client_secret=${server.config.NAVER_CLIENT_SECRET}&code=${code}&state=${server.config.NAVER_AUTH_STATE}`
-      );
-
-      if ("error" in data) {
-        return data;
+      if (!code) {
+        throw new Error("code is required in querystring");
       }
 
-      const { access_token } = data;
+      const { data: authResult } = await getAuth(code);
 
-      const { data: profileData } = await axios.get<NaverProfileResponse>(
-        `https://openapi.naver.com/v1/nid/me`,
-        {
-          headers: {
-            Authorization: `Bearer ${access_token}`,
-          },
-        }
-      );
+      if ("error" in authResult) {
+        throw new Error(authResult.error_description);
+      }
+
+      const { access_token } = authResult;
+
+      const { data: profileData } = await getProfile({
+        accessToken: access_token,
+      });
 
       const { message } = profileData;
 
       if (message !== "success") {
-        return profileData;
+        throw new Error(message);
       }
 
-      const { id } = profileData.response;
+      const { id: naverAuthId } = profileData.response;
 
-      const uri = `mongodb+srv://${server.config.MONGODB_NAME}:${server.config.MONGODB_PASSWORD}@cluster0.dtzskey.mongodb.net/?retryWrites=true&w=majority`;
-      const client = new MongoClient(uri);
-      await client.connect();
-      const db = client.db("QuotesSharer");
-      const collection = db.collection("User");
-      const result = await collection.findOne({ naverAuthId: id });
+      const user = await getUserById(naverAuthId);
 
-      if (!result) {
-        const currentTime = new Date().getTime();
-        const insertResult = await collection.insertOne({
-          naverAuthId: id,
-          createdAt: currentTime,
-          updatedAt: currentTime,
-          nickname: getRandomName(),
-        });
+      if (!user) {
+        await createUser(naverAuthId);
       }
 
-      client.close();
-
-      const accessToken = generateAccessToken({ userId: id });
+      const accessToken = generateAccessToken({ userId: naverAuthId });
 
       reply.setCookie("accessToken", accessToken, {
         path: "/",
         httpOnly: true,
         maxAge: 60 * 60 * 1000,
         domain: "localhost",
+        // TODO: proudction에서는 secure: true로 변경
       });
 
       return { message: "success" };
