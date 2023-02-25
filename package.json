@@ -13,16 +13,21 @@
     "@fastify/cookie": "^8.3.0",
     "@fastify/cors": "^8.2.0",
     "@fastify/env": "^4.2.0",
+    "@fastify/type-provider-typebox": "^2.4.0",
+    "@sinclair/typebox": "^0.25.21",
     "axios": "^1.2.2",
     "fastify": "^4.11.0",
     "jsonwebtoken": "^9.0.0",
-    "mongodb": "^4.13.0"
+    "mongodb": "^4.13.0",
+    "uuid": "^9.0.0"
   },
   "devDependencies": {
     "@types/jsonwebtoken": "^9.0.1",
     "@types/node": "^18.11.18",
+    "@types/uuid": "^9.0.0",
     "concurrently": "^7.6.0",
     "nodemon": "^2.0.20",
+    "pino-pretty": "^9.1.1",
     "typescript": "^4.9.4"
   }
 }
