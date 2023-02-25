@@ -1,5 +1,5 @@
 import { MongoClient, WithId, Document, InsertOneResult } from "mongodb";
-import { getRandomName } from "./utils";
+import { getRandomName } from "../utils";
 
 async function connectDb() {
   const uri = `mongodb+srv://${process.env.MONGODB_NAME}:${process.env.MONGODB_PASSWORD}@cluster0.dtzskey.mongodb.net/?retryWrites=true&w=majority`;
