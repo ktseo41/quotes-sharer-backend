@@ -1,8 +1,5 @@
-import Fastify, { FastifyInstance } from "fastify";
-import cors from "@fastify/cors";
+import { FastifyInstance } from "fastify";
 import cookie from "@fastify/cookie";
-import fastifyEnv from "@fastify/env";
-import { TypeBoxTypeProvider } from "@fastify/type-provider-typebox";
 import { AuthQuerystring } from "./types";
 import {
   decodeAccessTokenAsync,
@@ -19,33 +16,6 @@ import {
 } from "./lib/db";
 import { Static, Type } from "@sinclair/typebox";
 
-export const envProperties = {
-  MONGODB_ADDRESS: {
-    type: "string",
-  },
-  MONGODB_NAME: {
-    type: "string",
-  },
-  MONGODB_PASSWORD: {
-    type: "string",
-  },
-  MONGODB_DBNAME: {
-    type: "string",
-  },
-  NAVER_CLIENT_ID: {
-    type: "string",
-  },
-  NAVER_CLIENT_SECRET: {
-    type: "string",
-  },
-  NAVER_AUTH_STATE: {
-    type: "string",
-  },
-  COOKIE_SIGNATURE: {
-    type: "string",
-  },
-};
-
 const Quote = Type.Object({
   content: Type.String(),
   title: Type.Optional(Type.String()),
@@ -60,21 +30,6 @@ export type QuoteType = Static<typeof Quote>;
 const isDev = process.env.NODE_ENV === "development";
 
 export default async function (server: FastifyInstance) {
-  const envOptions = {
-    confKey: "config",
-    schema: {
-      type: "object",
-      required: ["MONGODB_NAME"],
-      properties: envProperties,
-    },
-    dotenv: true,
-  };
-
-  server.register(fastifyEnv, envOptions);
-  server.register(cors, {
-    origin: isDev ? ["http://localhost:5173"] : ["https://ktseo41.github.io"],
-    credentials: true,
-  });
   server.register(cookie, {
     secret: process.env.COOKIE_SIGNATURE,
     hook: "onRequest",

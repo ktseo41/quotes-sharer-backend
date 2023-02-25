@@ -6,7 +6,7 @@ import {
   RawServerBase,
   RawServerDefault,
 } from "fastify";
-import { envProperties } from "./";
+import { envProperties } from "./api/serverless";
 
 export type AuthQuerystring = {
   code: string;
